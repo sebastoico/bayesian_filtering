@@ -17,13 +17,13 @@ class KalmanFilter(object):
 
     def prediction(self, u = 0):
         self.x_k = np.dot(self.A_km1, self.x_k) + np.dot(self.B_km1, u)
-        self.P_k = np.dot(self.A_km1, self.P_k) + self.Q
+        self.P_k = np.dot(self.A_km1, np.dot(self.P_k, self.A_km1.T)) + self.Q
         return self.x_k, self.P_k
     
     def update(self, y):
         v_k = y - np.dot(self.H_k, self.x_k)
-        S_k = np.dot(np.dot(self.H_k, self.P_k), self.H_k.T) + self.R
-        K_k = np.dot(np.dot(self.P_k, self.H_k.T), np.linalg.pinv(S_k))
+        S_k = np.dot(self.H_k, np.dot(self.P_k, self.H_k.T)) + self.R
+        K_k = np.dot(self.P_k, np.dot(self.H_k.T, np.linalg.inv(S_k)))
         self.x_k = self.x_k + np.dot(K_k, v_k)
-        self.P_k = self.P_k - np.dot(np.dot(K_k, S_k), K_k.T)
+        self.P_k = self.P_k - np.dot(K_k, np.dot(S_k, K_k.T))
         return self.x_k, self.P_k
