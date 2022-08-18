@@ -71,21 +71,21 @@ class UnscentedKalmanFilter(object):
         self.Rn = np.eye(self.Ly) if Rn is None else Rn
 
         # filter parameters
-        self.alpha = 0.001                      # \in [1e-4, 1]
-        self.kappa = 3 - self.L                 # 0 or 3-L
-        self.beta = 2                           # 2 for gaussian distributions
+        alpha = 0.001                      # \in [1e-4, 1]
+        kappa = 3 - self.L                 # 0 or 3-L
+        beta = 2                           # 2 for gaussian distributions
 
-        self.lam = (self.alpha**2)*(self.L + self.kappa) - self.L #scaling parameter
-        self.gamma = np.sqrt(self.L + self.lam) # composite scaling parameter
+        lam = (alpha**2)*(self.L + kappa) - self.L #scaling parameter
+        self.gamma = np.sqrt(self.L + lam) # composite scaling parameter
 
         # mean weights (eq. 7.34)
         self.Wm = np.zeros(2*self.L + 1)
-        self.Wm[0] = self.lam/(self.L + self.lam)
-        self.Wm[1:] = 1/(2*(self.L + self.lam))
+        self.Wm[0] = lam/(self.L + lam)
+        self.Wm[1:] = 1/(2*(self.L + lam))
 
         # covariance weights (eq. 7.34)
         self.Wc = np.copy(self.Wm)
-        self.Wc[0] = (self.lam/(self.L + self.lam)) + (1 - self.alpha**2 + self.beta)
+        self.Wc[0] = (lam/(self.L + lam)) + (1 - alpha**2 + beta)
 
         # data initialization
         self.x_k = np.zeros(self.L) if x_0 is None else x_0      # (eq 7.35)

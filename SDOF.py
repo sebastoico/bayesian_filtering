@@ -2,7 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import sys
 
-from func import rk_discrete, KalmanFilter, UnscentedKalmanFilter
+from func import rk_discrete
+from func import KalmanFilter, UnscentedKalmanFilter, ParticleFilter
 
 """
 ## Application of the Kalman Filter, the Unscented Kalman Filter and the
@@ -101,7 +102,7 @@ acc = -(c*x[1:, 1] + k*x[1:, 0])/m
 # the RMS noise-to-signal is used to add the noise
 RMS = np.sqrt(np.sum(acc**2)/N)
 
-noise_per = 0.05              # 5% of the RMS is asumed as noise variance
+noise_per = 0.05              # 5# of the RMS is asumed as noise variance
 
 # The measures are generated
 meas = acc #+ noise_per*RMS*np.random.randn(N)
@@ -158,7 +159,6 @@ Q_nl = Q*dt
 R_nl = R/dt
 
 # using the Unscented Kalman Filter
-
 x_ukf = np.zeros((N, 2))
 x_ukf[0, :] = x_0
 P_ukf = np.empty(N, dtype='object')
@@ -169,10 +169,49 @@ sd_ukf = np.zeros_like(x_ukf)
 ukf = UnscentedKalmanFilter(F = F, H = H, x_0 = x_0, P_0 = P_0, \
     Rv = Q_nl, Rn = R_nl, dt = dt)
     
-for k in range(0, N):
+for k in range(1, N):
     ukf.prediction(x_g[k])
     x_ukf[k, :], P_ukf[k] = ukf.update(meas[k])
     sd_ukf[k, :] = np.sqrt(np.diag(P_ukf[k]))
+
+## ----------------------------------------------------------------------------
+## Particle filter implementation
+## ----------------------------------------------------------------------------
+
+# The 'Particle Filter' (PF) is a Monte Carlo aproach to Bayesian
+# filtering, is useful to the estimation of the nonlinear dynamical 
+# system given by:
+#
+#               x_k = F(x_{k-1}, u_k, v_{k-1})	(1)
+#               y_k = H(x_k, n_k)               (2)
+
+# the functions are redefined as
+F_pf = lambda x, u, v: rk_discrete(F, x, u, dt) + v
+H_pf = lambda x, n: H(x) + n
+
+# The number of particles used
+Ns = 10
+
+# the initial particles and their respective weights are defined as
+x_k0 = np.random.multivariate_normal(x_0, P_0, Ns)
+w_k0 = 1/Ns*np.ones(Ns)
+
+# using the Particle Filter
+x_pf = np.zeros((N, 2))
+x_pf[0, :] = x_0
+P_pf = np.empty(N, dtype='object')
+P_pf[0] = P_0
+
+per_pf = np.zeros((N, 4))
+
+pf = ParticleFilter(F = F_pf, H = H_pf, Ns = Ns, p_0 = x_k0, w_0 = w_k0, \
+    Rv = Q_nl, Rn = R_nl)
+    
+for k in range(1, N):
+    pf.prediction(x_g[k])
+    x_pf[k, :] = pf.x_k
+    per = np.percentile(pf.p_k, [15.87, 84.13], 0)
+    per_pf[k, :] = per.flatten()
 
 ## ----------------------------------------------------------------------------
 ## Plots
@@ -258,6 +297,37 @@ plt.ylabel('Velocity [$m/s$]')
 plt.xlabel('Time [$s$]')
 ymax = np.ceil(np.max(np.abs(np.concatenate((x_ukf[:, 1]+sd_ukf[:, 1], \
                                             x_ukf[:, 1]-sd_ukf[:, 1]))))*10)/10
+plt.axis([np.min(t), np.max(t), -ymax, ymax])
+
+plt.show()
+
+# Particle filter results
+
+plt.figure(figsize=(20, 10))
+# Displacement
+plt.subplot(2, 1, 1)
+plt.fill_between(t, per_pf[:, 0], per_pf[:, 2], \
+    color=[0.8, 0.8, 1], label='$P_{15.87}$ and $P_{84.13}$')
+plt.plot(t, x_pf[:, 0], '-b', label='PF N='+str(Ns))
+plt.plot(t, x[1:, 0], '--r', label='True signal')
+plt.legend(loc='lower right')
+plt.ylabel('Displacement [$m$]')
+plt.xlabel('Time [$s$]')
+ymax = np.ceil(np.max(np.abs(np.concatenate((per_pf[:, 0], \
+                                            per_pf[:, 2]))))*10)/10
+plt.axis([np.min(t), np.max(t), -ymax, ymax])
+
+# Displacement
+plt.subplot(2, 1, 2)
+plt.fill_between(t, per_pf[:, 1], per_pf[:, 3], \
+    color=[0.8, 0.8, 1], label='$P_{15.87}$ and $P_{84.13}$')
+plt.plot(t, x_pf[:, 1], '-b', label='PF N='+str(Ns))
+plt.plot(t, x[1:, 1], '--r', label='True signal')
+plt.legend(loc='lower right')
+plt.ylabel('Velocity [$m/s$]')
+plt.xlabel('Time [$s$]')
+ymax = np.ceil(np.max(np.abs(np.concatenate((per_pf[:, 1], \
+                                            per_pf[:, 3]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
 plt.show()
