@@ -29,7 +29,7 @@ from func import rk_discrete, KalmanFilter, UnscentedKalmanFilter
 """
 
 ## ----------------------------------------------------------------------------
-## Response simulation
+## Signal load
 ## ----------------------------------------------------------------------------
 
 # The excitation signal
@@ -43,21 +43,24 @@ x_g = 9.82*x_g                # (m/s^2)
 
 dt = t[1] - t[0]              # time between measurements
 
+## ----------------------------------------------------------------------------
+## System parameters
+## ----------------------------------------------------------------------------
+
 # The parameters are
 m = 1                         # kN*s^2/m
 c = 0.3                       # kN*s/m
 k = 9                         # kN/m
 
-# Initial state
-x_0 = [0, 0]                  # the system starts from rest
+# System initial mean and covariance
+x_0 = [0, 0]
 x_0 = np.array(x_0)
 nx = len(x_0)                 # number of states
-
-x = np.zeros([N+1, nx])       # here the evolution of the system is going to
-x[0, :] = x_0                 # be saved
+P_0 = 0.0001*np.eye(nx)
 
 # The system is written in a state-space form
 # X = [x dx/dt]'
+# for the process
 A = [[0,       1],
     [-k/m, -c/m]]
 A = np.array(A)
@@ -66,6 +69,23 @@ B = np.array(B)
 
 F = lambda x, u: np.dot(A, x) + np.dot(B, u)
 
+# for the measurement
+Hk = [-k/m, -c/m]
+Hk = np.array(Hk).reshape(1, 2)
+
+# Process noise covariance
+Q = 0.01*np.eye(nx)
+
+# Measurement noise covariance
+R = 0.01
+R = np.array(R).reshape(1, 1)
+
+## ----------------------------------------------------------------------------
+## System simulation
+## ----------------------------------------------------------------------------
+
+x = np.zeros([N+1, nx])       # here the evolution of the system is going to
+x[0, :] = x_0                 # be saved
 # To simulate the system, the Runge-Kutta fourth order method is used
 for i in range(0, N):
     x[i+1, :] = rk_discrete(F, x[i, :], x_g[i], dt)
@@ -94,29 +114,6 @@ meas = acc #+ noise_per*RMS*np.random.randn(N)
 #
 #       dX/dt = A*X + B*u + q
 #           y = H*X + r
-
-# The matrices of the system are written again
-# for the process
-A = [[0,       1],
-    [-k/m, -c/m]]
-A = np.array(A)
-B = [0, 1]
-B = np.array(B)
-# for the measurement
-Hk = [-k/m, -c/m]
-Hk = np.array(Hk).reshape(1, 2)
-
-# System initial mean and covariance
-x_0 = [0, 0]
-x_0 = np.array(x_0)
-P_0 = 0.0001*np.eye(nx)
-
-# Process noise covariance
-Q = 0.01*np.eye(nx)
-
-# Measurement noise covariance
-R = 0.01
-R = np.array(R).reshape(1, 1)
 
 # Is necessary to discretize the system, so
 Ad = np.eye(A.shape[0]) + A*dt
@@ -173,16 +170,9 @@ ukf = UnscentedKalmanFilter(F = F, H = H, x_0 = x_0, P_0 = P_0, \
     Rv = Q_nl, Rn = R_nl, dt = dt)
     
 for k in range(0, N):
-    try:
-        ukf.prediction(x_g[k])
-        x_ukf[k, :], P_ukf[k] = ukf.update(meas[k])
-        #print(x_ukf[k, :], P_ukf[k])
-        sd_ukf[k, :] = np.sqrt(np.diag(P_ukf[k]))
-    except:
-        print(P_ukf[k-1])
-        print('Matrix not positive definite at iteration',k)
-        sys.exit()
-        
+    ukf.prediction(x_g[k])
+    x_ukf[k, :], P_ukf[k] = ukf.update(meas[k])
+    sd_ukf[k, :] = np.sqrt(np.diag(P_ukf[k]))
 
 ## ----------------------------------------------------------------------------
 ## Plots
@@ -216,27 +206,27 @@ plt.figure(figsize=(20, 10))
 # Displacement
 plt.subplot(2, 1, 1)
 plt.fill_between(t, x_kf[:, 0]+sd_kf[:, 0], x_kf[:, 0]-sd_kf[:, 0], \
-      color=[0.8, 0.8, 1], label='$\pm$ 1 Standard deviation')
+    color=[0.8, 0.8, 1], label='$\pm$ 1 Standard deviation')
 plt.plot(t, x_kf[:, 0], '-b', label='KF')
 plt.plot(t, x[1:, 0], '--r', label='True signal')
 plt.legend(loc='lower right')
 plt.ylabel('Displacement [$m$]')
 plt.xlabel('Time [$s$]')
 ymax = np.ceil(np.max(np.abs(np.concatenate((x_kf[:, 0]+sd_kf[:, 0], \
-                                              x_kf[:, 0]-sd_kf[:, 0]))))*10)/10
+                                            x_kf[:, 0]-sd_kf[:, 0]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
 # Velocity
 plt.subplot(2, 1, 2)
 plt.fill_between(t, x_kf[:, 1]+sd_kf[:, 1], x_kf[:, 1]-sd_kf[:, 1], \
-      color=[0.8, 0.8, 1], label='$\pm$ 1 Standard deviation')
+    color=[0.8, 0.8, 1], label='$\pm$ 1 Standard deviation')
 plt.plot(t, x_kf[:, 1], '-b', label='KF')
 plt.plot(t, x[1:, 1], '--r', label='True signal')
 plt.legend(loc='lower right')
 plt.ylabel('Velocity [$m/s$]')
 plt.xlabel('Time [$s$]')
 ymax = np.ceil(np.max(np.abs(np.concatenate((x_kf[:, 1]+sd_kf[:, 1], \
-                                              x_kf[:, 1]-sd_kf[:, 1]))))*10)/10
+                                            x_kf[:, 1]-sd_kf[:, 1]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
 plt.show()
@@ -247,27 +237,27 @@ plt.figure(figsize=(20, 10))
 # Displacement
 plt.subplot(2, 1, 1)
 plt.fill_between(t, x_ukf[:, 0]+sd_ukf[:, 0], x_ukf[:, 0]-sd_ukf[:, 0], \
-      color=[0.8, 0.8, 1], label='$\pm$ 1 Standard deviation')
+    color=[0.8, 0.8, 1], label='$\pm$ 1 Standard deviation')
 plt.plot(t, x_ukf[:, 0], '-b', label='UKF')
 plt.plot(t, x[1:, 0], '--r', label='True signal')
 plt.legend(loc='lower right')
 plt.ylabel('Displacement [$m$]')
 plt.xlabel('Time [$s$]')
 ymax = np.ceil(np.max(np.abs(np.concatenate((x_ukf[:, 0]+sd_ukf[:, 0], \
-                                              x_ukf[:, 0]-sd_ukf[:, 0]))))*10)/10
+                                            x_ukf[:, 0]-sd_ukf[:, 0]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
 # Velocity
 plt.subplot(2, 1, 2)
 plt.fill_between(t, x_ukf[:, 1]+sd_ukf[:, 1], x_ukf[:, 1]-sd_ukf[:, 1], \
-      color=[0.8, 0.8, 1], label='$\pm$ 1 Standard deviation')
+    color=[0.8, 0.8, 1], label='$\pm$ 1 Standard deviation')
 plt.plot(t, x_ukf[:, 1], '-b', label='UKF')
 plt.plot(t, x[1:, 1], '--r', label='True signal')
 plt.legend(loc='lower right')
 plt.ylabel('Velocity [$m/s$]')
 plt.xlabel('Time [$s$]')
 ymax = np.ceil(np.max(np.abs(np.concatenate((x_ukf[:, 1]+sd_ukf[:, 1], \
-                                              x_ukf[:, 1]-sd_ukf[:, 1]))))*10)/10
+                                            x_ukf[:, 1]-sd_ukf[:, 1]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
 plt.show()

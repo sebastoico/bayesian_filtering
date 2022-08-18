@@ -57,7 +57,7 @@ class UnscentedKalmanFilter(object):
     -------------------------------------------------------
     """
     def __init__(self, F = None, H = None, x_0 = None, P_0 = None, Rv = None, \
-                 Rn = None, dt = None):
+                Rn = None, dt = None):
         if(F is None or H is None):
             raise ValueError("Set proper system dynamics.")
 
