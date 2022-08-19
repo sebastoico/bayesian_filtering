@@ -1,6 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import sys
 
 from func import rk_discrete
 from func import KalmanFilter, UnscentedKalmanFilter, ParticleFilter
@@ -105,7 +104,7 @@ RMS = np.sqrt(np.sum(acc**2)/N)
 noise_per = 0.05              # 5# of the RMS is asumed as noise variance
 
 # The measures are generated
-meas = acc #+ noise_per*RMS*np.random.randn(N)
+meas = acc + noise_per*RMS*np.random.randn(N)
 
 ## ----------------------------------------------------------------------------
 ## Kalman filter implementation
@@ -178,7 +177,7 @@ for k in range(1, N):
 ## Particle filter implementation
 ## ----------------------------------------------------------------------------
 
-# The 'Particle Filter' (PF) is a Monte Carlo aproach to Bayesian
+# The 'Particle Filter' (PF) is a Monte Carlo approach to Bayesian
 # filtering, is useful to the estimation of the nonlinear dynamical 
 # system given by:
 #

@@ -76,10 +76,10 @@ class ParticleFilter(object):
         self.w_k = 1/Ns*np.ones(self.Ns) if w_0 is None else w_0
 
         # likelihood function
-        self.p_zk_given_xk = lambda u, xk: norm.pdf(self.H(xk, 0), \
-            loc=u, scale=self.Rn)
+        self.p_zk_given_xk = lambda y, xk: norm.pdf(self.H(xk, 0), \
+            loc=y, scale=self.Rn)
     
-    def prediction(self, u = 0):
+    def prediction(self, u = 0, y = 0):
         for i in range(0, self.Ns):
             # draw the particles
             self.p_k[i, :] = self.F(self.p_k[i, :], u, \
@@ -87,7 +87,7 @@ class ParticleFilter(object):
             
             # assign the particle a weight, w_k**i, according to (63)
             self.w_k[i] = self.w_k[i]*np.sum(np.diag( \
-                self.p_zk_given_xk(u, self.p_k[i, :])))
+                self.p_zk_given_xk(y, self.p_k[i, :])))
 
         # calculate total weight
         t = np.sum(self.w_k)
