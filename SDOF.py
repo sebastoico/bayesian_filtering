@@ -101,7 +101,7 @@ acc = -(c*x[1:, 1] + k*x[1:, 0])/m
 # the RMS noise-to-signal is used to add the noise
 RMS = np.sqrt(np.sum(acc**2)/N)
 
-noise_per = 0.05              # 5# of the RMS is asumed as noise variance
+noise_per = 0.05              # 5% of the RMS is asumed as noise variance
 
 # The measures are generated
 meas = acc + noise_per*RMS*np.random.randn(N)
@@ -189,7 +189,7 @@ F_pf = lambda x, u, v: rk_discrete(F, x, u, dt) + v
 H_pf = lambda x, n: H(x) + n
 
 # The number of particles used
-Ns = 10
+Ns = 1000
 
 # the initial particles and their respective weights are defined as
 x_k0 = np.random.multivariate_normal(x_0, P_0, Ns)
@@ -211,6 +211,26 @@ for k in range(1, N):
     x_pf[k, :] = pf.x_k
     per = np.percentile(pf.p_k, [15.87, 84.13], 0)
     per_pf[k, :] = per.flatten()
+
+## ----------------------------------------------------------------------------
+## Relative Errors
+## ----------------------------------------------------------------------------
+
+# Kalman Filter error
+err_kf = np.divide(x_kf[:, :] - x[1:, :], x[1:, :])
+var_kf = np.var(err_kf, 0)
+m_kf = np.mean(err_kf, 0)
+ms_kf = var_kf + np.power(m_kf, 2)
+# Unscented Kalman Filter error
+err_ukf = np.divide(x_ukf[:, :] - x[1:, :], x[1:, :])
+var_ukf = np.var(err_ukf, 0)
+m_ukf = np.mean(err_ukf, 0)
+ms_ukf = var_ukf + np.power(m_ukf, 2)
+# Particle Filter error
+err_pf = np.divide(x_pf[:, :] - x[1:, :], x[1:, :])
+var_pf = np.var(err_pf, 0)
+m_pf = np.mean(err_pf, 0)
+ms_pf = var_pf + np.power(m_pf, 2)
 
 ## ----------------------------------------------------------------------------
 ## Plots
@@ -236,7 +256,7 @@ axins.yaxis.set_ticklabels([])
 axins.xaxis.set_ticklabels([])
 ax.indicate_inset_zoom(axins, edgecolor='black')
 
-plt.show()
+plt.savefig('./img/sdof/acc_meas_sdof.png')
 
 # Kalman filter results
 
@@ -267,7 +287,7 @@ ymax = np.ceil(np.max(np.abs(np.concatenate((x_kf[:, 1]+sd_kf[:, 1], \
                                             x_kf[:, 1]-sd_kf[:, 1]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
-plt.show()
+plt.savefig('./img/sdof/kf_results_sdof.png')
 
 # Unscented Kalman filter results
 
@@ -298,7 +318,7 @@ ymax = np.ceil(np.max(np.abs(np.concatenate((x_ukf[:, 1]+sd_ukf[:, 1], \
                                             x_ukf[:, 1]-sd_ukf[:, 1]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
-plt.show()
+plt.savefig('./img/sdof/ukf_results_sdof.png')
 
 # Particle filter results
 
@@ -316,7 +336,7 @@ ymax = np.ceil(np.max(np.abs(np.concatenate((per_pf[:, 0], \
                                             per_pf[:, 2]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
-# Displacement
+# Velocity
 plt.subplot(2, 1, 2)
 plt.fill_between(t, per_pf[:, 1], per_pf[:, 3], \
     color=[0.8, 0.8, 1], label='$P_{15.87}$ and $P_{84.13}$')
@@ -329,4 +349,43 @@ ymax = np.ceil(np.max(np.abs(np.concatenate((per_pf[:, 1], \
                                             per_pf[:, 3]))))*10)/10
 plt.axis([np.min(t), np.max(t), -ymax, ymax])
 
-plt.show()
+plt.savefig('./img/sdof/pf_results_sdof.png')
+
+# Error
+
+plt.figure(figsize=(20, 10))
+# Displacement error
+plt.subplot(2, 1, 1)
+err = np.concatenate((err_kf, err_ukf, err_pf))[:, 0]
+b_w = (max(err) - min(err)) / (3*np.ceil(np.sqrt(N)))
+bins = np.arange(min(err), max(err) + b_w, b_w)
+e_d_kf = plt.hist(err_kf[:, 0], \
+                  bins=bins, \
+                  alpha=0.2)
+e_d_ukf = plt.hist(err_ukf[:, 0], \
+                  bins=bins, \
+                  alpha=0.2)
+e_d_pf = plt.hist(err_pf[:, 0], \
+                  bins=bins, \
+                  alpha=0.2)
+plt.legend(['KF', 'UKF', f'PF N={Ns}'])
+plt.ylabel('Displacement error')
+
+# Velocity error
+plt.subplot(2, 1, 2)
+err = np.concatenate((err_kf, err_ukf, err_pf))[:, 1]
+b_w = (max(err) - min(err)) / (3*np.ceil(np.sqrt(N)))
+bins = np.arange(min(err), max(err) + b_w, b_w)
+e_v_kf = plt.hist(err_kf[:, 1], \
+                  bins=bins, \
+                  alpha=0.2)
+e_v_ukf = plt.hist(err_ukf[:, 1], \
+                   bins=bins, \
+                   alpha=0.2)
+e_v_pf = plt.hist(err_pf[:, 1], \
+                  bins=bins, \
+                  alpha=0.2)
+plt.legend(['KF', 'UKF', f'PF N={Ns}'])
+plt.ylabel('Velocity error')
+
+plt.savefig('./img/sdof/error_sdof.png')
